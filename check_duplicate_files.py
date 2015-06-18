@@ -6,7 +6,6 @@ Output is utf-8: If you use a windows command shell, please set it correctly
                  using 'chcp 65001'
 """
 
-#TODO(zyrkon): Keyboard interrupt in main (strg+c)
 #TODO(zyrkon): implement perceptive hashing
 
 __author__      = 'Peter Hense (peter.hense@gmail.com)'
@@ -18,6 +17,7 @@ __version__     = '0.5b'
 import codecs
 import hashlib
 import os
+import signal
 import sys
 from argparse import ArgumentParser
 from argparse import ArgumentTypeError
@@ -148,6 +148,10 @@ def write_output(d_set_hash, outfile, start_time, errorlist):
     return
 
 
+def signal_handler(signal, frame):
+    sys.exit(1)
+
+
 def readable_dir(prospective_dir):
     if not os.path.isdir(prospective_dir):
         raise ArgumentTypeError("readable_dir:{0} is not a valid path".format(prospective_dir))
@@ -158,6 +162,8 @@ def readable_dir(prospective_dir):
 
 
 def main():
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
     start_time = time()
 
     d_set_filesize = defaultdict(set)
