@@ -29,11 +29,11 @@ from stat import *
 
 FILEREADERROR = 255
 
+
 def generate_hashes(d_set_filesize, hashtype):
-    mark_for_delete = []
+    mark_for_delete = list()
     d_set_hash = defaultdict(set)
-    errorlist = set()
-    hash = 0
+    errorlist = list()
 
     print('Creating filehashes...\n')
     for key in d_set_filesize:
@@ -42,7 +42,7 @@ def generate_hashes(d_set_filesize, hashtype):
             if hash != FILEREADERROR:
                 d_set_hash[hash].add(file_path)
             else:
-                errorlist.add(file_path)
+                errorlist.append(file_path)
 
     # Cleanup
     d_set_filesize.clear()
@@ -59,8 +59,8 @@ def generate_hashes(d_set_filesize, hashtype):
 
 def scan_directories(directories, d_set_filesize, pHash):
     extensions = ('.jpg', 'jpeg', '.png', '.bmp')
-    mark_for_delete = []
-    errorlist = set()
+    mark_for_delete = list()
+    errorlist = list()
     count = 0
 
     print('Scanning directories...')
@@ -75,7 +75,7 @@ def scan_directories(directories, d_set_filesize, pHash):
                         d_set_filesize[st.st_size].add(qualified_filename)
                         count += 1
                 except:
-                    errorlist.add(qualified_filename)
+                    errorlist.append(qualified_filename)
 
     # Statistic
     print('\nFiles found: %s' % count)
@@ -97,8 +97,8 @@ def scan_directories(directories, d_set_filesize, pHash):
     return errorlist
 
 
-def write_output(d_set_hash, outfile, exec_time, errorlist1, errorlist2):
-    write_errorlist = set()
+def write_output(d_set_hash, outfile, exec_time, errorlist):
+    write_errorlist = list()
 
     try:
         with codecs.open(outfile, 'w', encoding="utf-8") as f:
@@ -110,22 +110,17 @@ def write_output(d_set_hash, outfile, exec_time, errorlist1, errorlist2):
                     try:
                         f.write('%s \n' % file_path)
                     except:
-                        write_errorlist.add(file_path)
+                        write_errorlist.append(file_path)
                 f.write('-------------------\n')
 
-            if errorlist1.__len__() > 0 or errorlist2.__len__() > 0:
+            if errorlist.__len__() > 0:
                 f.write('\nThe Following Files could not be accessed:')
                 f.write('\n==========================================\n')
-                for error in errorlist1:
+                for error in errorlist:
                     try:
                         f.write('%s\n' % error)
                     except:
-                        write_errorlist.add(error)
-                for error in errorlist2:
-                    try:
-                        f.write('%s\n' % error)
-                    except:
-                        write_errorlist.add(error)
+                        write_errorlist.append(error)
 
             f.flush()
             f.write('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
@@ -138,12 +133,10 @@ def write_output(d_set_hash, outfile, exec_time, errorlist1, errorlist2):
             for file_paths in d_set_hash[key]:
                 print(file_paths)
             print('--------------------')
-        if errorlist1.__len__() > 0 or errorlist2.__len__() > 0:
+        if errorlist.__len__() > 0:
             print('\nThe Following Files could not be accessed:')
             print('==========================================\n')
-            for error in errorlist1:
-                print('%s' % error)
-            for error in errorlist2:
+            for error in errorlist:
                 print('%s' % error)
 
     if write_errorlist.__len__() > 0:
@@ -175,7 +168,6 @@ def _hash (file_path, hashtype):
             return hashlib.md5(digest).hexdigest()
     except:
         return FILEREADERROR
-    return
 
 
 def _query_yes_no(question, default="yes"):
@@ -222,8 +214,6 @@ def main():
 
     d_set_filesize = defaultdict(set)
     d_set_hash = defaultdict(set)
-    errorlist1 = set()
-    errorlist2 = set()
 
     parser = ArgumentParser(description = 'Dublicate Checker')
     parser.add_argument('-i', action = 'append', dest = 'dir',
@@ -245,18 +235,21 @@ def main():
                         version='%(prog)s {version}'.format(version=__version__))
 
     args = parser.parse_args()
-    errorlist1 = scan_directories(args.dir, d_set_filesize, args.pHash)
+    read_errors = scan_directories(args.dir, d_set_filesize, args.pHash)
 
     time_query = datetime.datetime.now()
     if not _query_yes_no('Do you want to continue?', 'yes'):
         sys.exit(0)
     timedelta_query = datetime.datetime.now() - time_query     # timedelta
 
-    d_set_hash, errorlist2 = generate_hashes(d_set_filesize, args.hashtype)
+    d_set_hash, read_errors2 = generate_hashes(d_set_filesize, args.hashtype)
+    read_errors.extend(read_errors2)
 
     execution_time = datetime.datetime.now() - start_time         #timedelta
     execution_time -= timedelta_query
-    write_output(d_set_hash, args.outfile, execution_time, errorlist1, errorlist2)
+
+    write_output(d_set_hash, args.outfile, execution_time, read_errors)
+    sys.exit(0)
 
 
 if __name__ == '__main__':
