@@ -2,11 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Requires Pillow ( http://pillow.readthedocs.org/en/latest/installation.html )
-
 Output is utf-8: If you use a windows command shell, please set it correctly
                  using 'chcp 65001'
-
 """
 
 # TODO(zyrkon): implement multiprocessor for hashing
@@ -28,6 +25,7 @@ import sys
 from argparse import ArgumentParser
 from argparse import ArgumentTypeError
 from collections import defaultdict
+from tqdm import *
 from stat import *
 try:
     from PIL import Image                   # Pillow (modern PIL fork)
@@ -45,9 +43,7 @@ def generate_hashes(d_set_filesize, image_list, hashtype, pHash):
     d_set_hash = defaultdict(set)
     errorlist = list()
 
-
-    print('Creating filehashes...\n')
-    for key in d_set_filesize:
+    for key in tqdm(d_set_filesize, 'hashing'):
         for file_path in d_set_filesize[key]:
             hash = _hash(file_path, hashtype)
             if hash != FILEREADERROR:
@@ -59,7 +55,7 @@ def generate_hashes(d_set_filesize, image_list, hashtype, pHash):
     if pHash:            # perceptive image hashing
         d_set_hash_img = defaultdict(set)
 
-        for file_path in image_list:
+        for file_path in tqdm(image_list, 'img hashing:'):
             hash = _perceptive_hash(file_path)
             if hash != FILEREADERROR:
                  d_set_hash_img[hash].add(file_path)
@@ -72,14 +68,13 @@ def generate_hashes(d_set_filesize, image_list, hashtype, pHash):
         index_list = [key for key in d_set_hash_img]
         deleted_index_keys = []
 
-        for hash1 in index_list:
+        for hash1 in tqdm(index_list, 'calculating'):
             if hash1 in deleted_index_keys:
                 continue
 
             for hash2 in index_list:
                 if hash1 == hash2:
-                    continue            # same hash-values are in the same set, except
-                                        # when we check same element of this list
+                    continue            # same entry in list
                 if hash2 in deleted_index_keys:
                     continue
 
@@ -100,8 +95,6 @@ def generate_hashes(d_set_filesize, image_list, hashtype, pHash):
 
 
 def _perceptive_hash(file_path, hash_size = 8):
-    print('hashing: %s' % file_path)
-
     # if memory consumption is to high for many images, it is posisble to use
     # with open (file_path, 'rb') as f:
     #   image = Image.open(f)
@@ -138,7 +131,6 @@ def _perceptive_hash(file_path, hash_size = 8):
 
 
 def _hash(file_path, hashtype):
-    print('hashing: %s' % file_path)
     try:
         with open(file_path, 'rb') as f:
             contents = f.read()
