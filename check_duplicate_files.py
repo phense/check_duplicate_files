@@ -2,22 +2,25 @@
 # -*- coding: utf-8 -*-
 
 """
-Output is utf-8: If you use a windows command shell, please set it correctly
+Output is utf-8: If you use a windows command shell, please list it correctly
                  using 'chcp 65001'
 """
 
 # TODO(zyrkon): implement multiprocessor for hashing
+# TODO(zyrkon): commenting, lol
 
 __author__      = 'Peter Hense (peter.hense@gmail.com)'
 __copyright__   = 'Copyright (c) 2015, Peter Hense'
+__license__     = 'Apache License Version 2.0'
 __credits__     = ''        # ['List', 'of', 'programmers']
 __status__      = 'Development'     # Prototype / Development / Production
-__version__     = '0.5b'
+__version__     = '0.8'
 
 
 import codecs
 import datetime
 import hashlib
+import json
 import operator
 import os
 import signal
@@ -38,37 +41,36 @@ else:
 FILEREADERROR = 255
 
 
-def generate_hashes(d_set_filesize, image_list, hashtype, pHash):
-    mark_for_delete = list()
-    d_set_hash = defaultdict(set)
-    errorlist = list()
+def generate_hashes(d_list_filesize, image_list, hashtype, pHash):
+    d_list_hash = defaultdict(list)
+    errorlist = []
 
-    for key in tqdm(d_set_filesize, 'hashing'):
-        for file_path in d_set_filesize[key]:
+    for key in tqdm(d_list_filesize, 'hashing', None, True):
+        for file_path in d_list_filesize[key]:
             hash = _hash(file_path, hashtype)
             if hash != FILEREADERROR:
-                d_set_hash[hash].add(file_path)
+                d_list_hash[hash].append(file_path)
             else:
                 errorlist.append(file_path)
 
 
     if pHash:            # perceptive image hashing
-        d_set_hash_img = defaultdict(set)
+        d_list_hash_img = defaultdict(list)
 
-        for file_path in tqdm(image_list, 'img hashing:'):
+        for file_path in tqdm(image_list, 'hashing images:', None, True):
             hash = _perceptive_hash(file_path)
             if hash != FILEREADERROR:
-                 d_set_hash_img[hash].add(file_path)
+                 d_list_hash_img[hash].append(file_path)
             else:
                 errorlist.append(file_path)
 
         # calculate hamming-distance between all image-hashes to find
         # outliners (hamming distance of two perceptive hashes < 4 means the images
         # are basically the same)
-        index_list = [key for key in d_set_hash_img]
+        index_list = [key for key in d_list_hash_img]
         deleted_index_keys = []
 
-        for hash1 in tqdm(index_list, 'calculating'):
+        for hash1 in tqdm(index_list, 'calculating', None, True):
             if hash1 in deleted_index_keys:
                 continue
 
@@ -79,19 +81,19 @@ def generate_hashes(d_set_filesize, image_list, hashtype, pHash):
                     continue
 
                 if _hamming_distance(hash1, hash2) < 4:
-                    d_set_hash_img[hash1].update(d_set_hash_img[hash2])
-                    del d_set_hash_img[hash2]
+                    d_list_hash_img[hash1] += d_list_hash_img[hash2]
+                    del d_list_hash_img[hash2]
                     deleted_index_keys.append(hash2)
 
     # Cleanup
-    d_set_filesize.clear()
-    _delete_unique_entries(d_set_hash)
+    d_list_filesize.clear()
+    _delete_unique_entries(d_list_hash)
 
     if pHash:
-        _delete_unique_entries(d_set_hash_img)
-        d_set_hash.update(d_set_hash_img)
+        _delete_unique_entries(d_list_hash_img)
+        d_list_hash.update(d_list_hash_img)
 
-    return d_set_hash, errorlist
+    return d_list_hash, errorlist
 
 
 def _perceptive_hash(file_path, hash_size = 8):
@@ -148,16 +150,15 @@ def _hamming_distance(string1, string2):
 
 def scan_directories(directories, pHash):
     extensions = ('.jpg', '.jpeg', '.png', '.bmp')
-    d_set_filesize = defaultdict(set)
-    images = list()
-    errorlist = list()
+    d_list_filesize = defaultdict(list)
+    images = []
+    errorlist = []
     count = 0
 
     print('Scanning directories...')
 
     # code could be a lot smaller with `if pHash` inside the innermost loop
-    # obviously, it would also be much slower
-
+    # it would also lead to a LOT of unnessary checking
     if not pHash:        # use normal hash on all files
         for root_dir in directories:
             for path, subdirList, fileList in os.walk(root_dir):
@@ -166,7 +167,7 @@ def scan_directories(directories, pHash):
                     try:            # denied permission for os.stat
                         st = os.stat(qualified_filename)
                         if S_ISREG(st.st_mode):
-                            d_set_filesize[st.st_size].add(qualified_filename)
+                            d_list_filesize[st.st_size].append(qualified_filename)
                             count += 1
                     except:
                         errorlist.append(qualified_filename)
@@ -183,7 +184,7 @@ def scan_directories(directories, pHash):
                         try:
                             st = os.stat(qualified_filename)
                             if S_ISREG(st.st_mode):
-                                d_set_filesize[st.st_size].add(qualified_filename)
+                                d_list_filesize[st.st_size].append(qualified_filename)
                                 count += 1
                         except:
                             errorlist.append(qualified_filename)
@@ -193,21 +194,21 @@ def scan_directories(directories, pHash):
     print('\nFiles found: %s' % count)
 
     # delete all files with unique filesize
-    _delete_unique_entries(d_set_filesize)
+    _delete_unique_entries(d_list_filesize)
 
     # Statistic
     count = 0
-    for key in d_set_filesize:
-        count += d_set_filesize[key].__len__()
+    for key in d_list_filesize:
+        count += d_list_filesize[key].__len__()
 
     # at this point, all images are possible canidates
     count += images.__len__()
     print('Possible candidates: %s\n' % count)
-    return d_set_filesize, images, errorlist
+    return d_list_filesize, images, errorlist
 
 
 def _delete_unique_entries(dictionary):
-    mark_for_delete = list()
+    mark_for_delete = []
 
     for key in dictionary:
         if dictionary[key].__len__() == 1:
@@ -219,16 +220,16 @@ def _delete_unique_entries(dictionary):
     return
 
 
-def write_output(d_set_hash, outfile, exec_time, errorlist):
-    write_errorlist = list()
+def write_output(d_list_hash, outfile, exec_time, errorlist):
+    write_errorlist = []
 
     try:
         with codecs.open(outfile, 'w', encoding='utf-8') as f:
             f.write('\nThe Following File-Duplicates where found:')
             f.write('\n==========================================\n')
-            for key in d_set_hash:
+            for key in d_list_hash:
                 f.write('Hash: %s\n' %key)
-                for file_path in d_set_hash[key]:
+                for file_path in d_list_hash[key]:
                     try:
                         f.write('%s \n' % file_path)
                     except:
@@ -248,12 +249,12 @@ def write_output(d_set_hash, outfile, exec_time, errorlist):
             f.write('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
 
     except:                 #IOError, UnicodeEncodeError
-        print('- Error - Could not open Output File.\n')
+        print('\n- Error - Could not open Output File.\n')
         print('The Following File-Duplicates where found:')
         print('==========================================\n')
-        for key in d_set_hash:
+        for key in d_list_hash:
             print('Hash: %s' % key)
-            for file_paths in d_set_hash[key]:
+            for file_paths in d_list_hash[key]:
                 print(file_paths)
             print('--------------------')
         if errorlist.__len__() > 0:
@@ -268,7 +269,19 @@ def write_output(d_set_hash, outfile, exec_time, errorlist):
             print('%s\n' % write_error)
         print('(Please check your filesystem encoding)\n')
 
-    print('Execution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
+    print('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
+    return
+
+
+def write_json_output(d_list_hash, outfile, exec_time):
+    try:
+        with codecs.open(outfile, 'w', encoding='utf-8') as f:
+            json.dump(d_list_hash, f, ensure_ascii=False, indent=4)
+    except:
+        print('\n- Error - Could not write JSON Data to file')
+        json_data = json.dumps(d_list_hash, ensure_ascii=False)
+        print (json_data)
+    print('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
     return
 
 
@@ -314,8 +327,8 @@ def main():
     signal.signal(signal.SIGTERM, _signal_handler)
     start_time = datetime.datetime.now()
 
-    d_set_filesize = defaultdict(set)
-    d_set_hash = defaultdict(set)
+    d_list_filesize = defaultdict(list)
+    d_list_hash = defaultdict(list)
 
     parser = ArgumentParser(description = 'Dublicate Checker')
     parser.add_argument('-i', action = 'append', dest = 'dir',
@@ -326,9 +339,13 @@ def main():
                         default = 'md5',
                         help = 'select hash-type (md5 (default), sha1, sha224, sha256, sha384, sha512)')
 
-    parser.add_argument('--disable-pHash', action = 'store_true', dest = 'no_pHash',
+    parser.add_argument('-p', '--perceptive-hashing', action = 'store_true',
+                        dest = 'pHash', default = False,
+                        help = 'enables perceptive hashing of images')
+
+    parser.add_argument('--json', action = 'store_true', dest = 'json',
                         default = False,
-                        help = 'disables perceptive hashing of images')
+                        help = 'write outputfile in json format')
 
     parser.add_argument('outfile', nargs='?',
                         help = 'output file for found duplicates')
@@ -339,14 +356,14 @@ def main():
     args = parser.parse_args()
 
     # disable perceptive hashing (normal hashes on all files) when PIL LIB could
-    # not be loaded or the flag is manually set
-    pHash = not (IMG_LIB_ERROR or args.no_pHash)
+    # not be loaded and it is not enabled
+    pHash = ((not IMG_LIB_ERROR) and args.pHash)
 
     if not pHash:
         print('(Perceptive Image Scan disabled)')
 
     # Scan all directories and find duplicates by filesize
-    d_set_filesize, images, read_errors = scan_directories(args.dir, pHash)
+    d_list_filesize, images, read_errors = scan_directories(args.dir, pHash)
 
     # Ask the user if he wants to continue, now that he knows how
     # many files need to be hashed. Exclude the query-time from
@@ -358,14 +375,17 @@ def main():
 
     # generate the hashed and calculate the execution time
     # append possible new read-errors to the general error-list
-    d_set_hash, read_errors2 = generate_hashes(d_set_filesize, images, args.hashtype, pHash)
+    d_list_hash, read_errors2 = generate_hashes(d_list_filesize, images, args.hashtype, pHash)
     read_errors.extend(read_errors2)
 
     execution_time = datetime.datetime.now() - start_time       # timedelta
     execution_time -= timedelta_query                           # timedelta
 
     # write output to file/console
-    write_output(d_set_hash, args.outfile, execution_time, read_errors)
+    if not args.json:
+        write_output(d_list_hash, args.outfile, execution_time, read_errors)
+    else:
+        write_json_output(d_list_hash, args.outfile, execution_time)
 
     # done
     sys.exit(0)
