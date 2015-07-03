@@ -6,7 +6,11 @@ Output is utf-8: If you use a windows command shell, please list it correctly
                  using 'chcp 65001'
 """
 
-# TODO(zyrkon): implement multiprocessor for hashing
+# FEATURE(zyrkon): implement multiprocessor for hashing
+# FEATURE(zyrkon): find broken symbolic links
+# FEATURE(zyrkon): find empty files and directories
+# FEATURE(zyrkon): --size 20M-1G to find files between 20mb and 1gb (example)
+# FEATURE(zyrkon): --output=(rm|link)bash/(rm|link)batch/json/text
 # TODO(zyrkon): commenting, lol
 
 __author__      = 'Peter Hense (peter.hense@gmail.com)'
