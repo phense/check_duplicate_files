@@ -10,7 +10,6 @@ Output is utf-8: If you use a windows command shell, please list it correctly
 # FEATURE(zyrkon): find broken symbolic links
 # FEATURE(zyrkon): find empty files and directories
 # FEATURE(zyrkon): --size 20M-1G to find files between 20mb and 1gb (example)
-# FEATURE(zyrkon): --output=(rm|link)bash/(rm|link)batch/json/text
 # TODO(zyrkon): commenting, lol
 
 __author__      = 'Peter Hense (peter.hense@gmail.com)'
@@ -224,7 +223,7 @@ def _delete_unique_entries(dictionary):
     return
 
 
-def write_output(d_list_hash, outfile, exec_time, errorlist):
+def write_output_text(d_list_hash, outfile, exec_time, errorlist):
     write_errorlist = []
 
     try:
@@ -235,7 +234,7 @@ def write_output(d_list_hash, outfile, exec_time, errorlist):
                 f.write('Hash: %s\n' %key)
                 for file_path in d_list_hash[key]:
                     try:
-                        f.write('%s \n' % file_path)
+                        f.write('%s \n' % os.path.normcase(file_path))
                     except:
                         write_errorlist.append(file_path)
                 f.write('-------------------\n')
@@ -245,7 +244,7 @@ def write_output(d_list_hash, outfile, exec_time, errorlist):
                 f.write('\n==========================================\n')
                 for error in errorlist:
                     try:
-                        f.write('%s\n' % error)
+                        f.write('%s\n' % os.path.normcase(error))
                     except:
                         write_errorlist.append(error)
 
@@ -254,18 +253,46 @@ def write_output(d_list_hash, outfile, exec_time, errorlist):
 
     except:                 #IOError, UnicodeEncodeError
         print('\n- Error - Could not open Output File.\n')
-        print('The Following File-Duplicates where found:')
-        print('==========================================\n')
-        for key in d_list_hash:
-            print('Hash: %s' % key)
-            for file_paths in d_list_hash[key]:
-                print(file_paths)
-            print('--------------------')
-        if errorlist.__len__() > 0:
-            print('\nThe Following Files could not be accessed:')
-            print('==========================================\n')
-            for error in errorlist:
-                print('%s' % error)
+
+    if write_errorlist.__len__() > 0:
+        print('- Error - These files could not be written to output file:\n')
+        for write_error in write_errorlist:
+            print('%s\n' % os.path.normcase(write_error))
+        print('(Please check your filesystem encoding)\n')
+
+    print('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
+    return
+
+
+def write_output_bash(d_list_hash, outfile, exec_time, create_link):
+    write_errorlist = []
+
+    try:
+        with codecs.open(outfile, 'w', encoding='utf-8') as f:
+            f.write('#!/bin/bash\n\n')
+            f.write('# This script is machine generated and might do harm to your\n')
+            f.write('# running system.\n')
+            f.write('# Please check this script carefully before running\n')
+
+            if create_link:
+                f.write('printf "replacing duplicates with hardlinks..."\n')
+            else:
+                f.write('printf "deleting duplicates..."\n')
+            for key in d_list_hash:
+                try:
+                    original = os.path.normcase(d_list_hash[key][0])
+                    f.write('# ------------------\n')
+                    f.write('# Original: %s\n' % original)
+                    for copy in d_list_hash[key][1:]:
+                        f.write('rm %s\n' % copy)
+                        if create_link:
+                            f.write('ln %s %s\n' % (original, os.path.normcase(copy)))
+                except:
+                    write_errorlist.append(file_path)
+            f.flush()
+
+    except:                 #IOError, UnicodeEncodeError
+        print('\n- Error - Could not open Output File.\n')
 
     if write_errorlist.__len__() > 0:
         print('- Error - These files could not be written to output file:\n')
@@ -277,7 +304,47 @@ def write_output(d_list_hash, outfile, exec_time, errorlist):
     return
 
 
-def write_json_output(d_list_hash, outfile, exec_time):
+def write_output_win(d_list_hash, outfile, exec_time, create_link):
+    write_errorlist = []
+
+    try:
+        with codecs.open(outfile, 'w', encoding='utf-8') as f:
+            f.write('@ECHO OFF\n\n')
+            f.write('REM This script is machine generated and might do harm to your\n')
+            f.write('REM running system.\n')
+            f.write('REM Please check this script carefully before running\n')
+
+            if create_link:
+                f.write('ECHO "replacing duplicates with hardlinks..."\n')
+            else:
+                f.write('ECHO "deleting duplicates..."\n')
+            for key in d_list_hash:
+                try:
+                    original = os.path.normcase(d_list_hash[key][0])
+                    f.write('REM ------------------\n')
+                    f.write('REM Original: %s\n' % original)
+                    for copy in d_list_hash[key][1:]:
+                        f.write('DEL %s\n' % copy)
+                        if create_link:
+                            f.write('mklink /H %s %s\n' % (os.path.normcase(copy), original))
+                except:
+                    write_errorlist.append(file_path)
+            f.flush()
+
+    except:                 #IOError, UnicodeEncodeError
+        print('\n- Error - Could not open Output File.\n')
+
+    if write_errorlist.__len__() > 0:
+        print('- Error - These files could not be written to output file:\n')
+        for write_error in write_errorlist:
+            print('%s\n' % write_error)
+        print('(Please check your filesystem encoding)\n')
+
+    print('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
+    return
+
+
+def write_output_json(d_list_hash, outfile, exec_time):
     try:
         with codecs.open(outfile, 'w', encoding='utf-8') as f:
             json.dump(d_list_hash, f, ensure_ascii=False, indent=4)
@@ -333,26 +400,32 @@ def main():
 
     d_list_filesize = defaultdict(list)
     d_list_hash = defaultdict(list)
+    output = ['text', 'json', 'bash_rm', 'bash_link', 'win_del', 'win_link']
 
     parser = ArgumentParser(description = 'Dublicate Checker')
     parser.add_argument('-i', action = 'append', dest = 'dir',
                         type = _readable_dir,
-                        help = 'add directory to list for duplicate search')
+                        help = 'add directory to list for duplicate search'
+                        )
 
     parser.add_argument('--hash', action = 'store', dest = 'hashtype',
                         default = 'md5',
-                        help = 'select hash-type (md5 (default), sha1, sha224, sha256, sha384, sha512)')
+                        help = 'select hash-type (md5 (default), sha1, sha224, sha256, sha384, sha512)'
+                        )
 
     parser.add_argument('-p', '--perceptive-hashing', action = 'store_true',
                         dest = 'pHash', default = False,
-                        help = 'enables perceptive hashing of images')
+                        help = 'enables perceptive hashing of images'
+                        )
 
-    parser.add_argument('--json', action = 'store_true', dest = 'json',
-                        default = False,
-                        help = 'write outputfile in json format')
+    parser.add_argument('-o', '--output-format', action = 'store', dest = 'outformat',
+                        default = 'text',
+                        help = 'select output format (text, json, bash_rm, bash_link, win_del, win_link)'
+                        )
 
-    parser.add_argument('outfile', nargs='?',
-                        help = 'output file for found duplicates')
+    parser.add_argument('outfile', #nargs='?',
+                        help = 'output file for found duplicates'
+                        )
 
     parser.add_argument('--version', action='version',
                         version='%(prog)s {version}'.format(version=__version__))
@@ -385,11 +458,24 @@ def main():
     execution_time = datetime.datetime.now() - start_time       # timedelta
     execution_time -= timedelta_query                           # timedelta
 
-    # write output to file/console
-    if not args.json:
-        write_output(d_list_hash, args.outfile, execution_time, read_errors)
+
+    # write output
+    if args.outformat in output:
+        if args.outformat == 'text':
+            write_output_text(d_list_hash, args.outfile, execution_time, read_errors)
+        elif args.outformat == 'json':
+            write_output_json(d_list_hash, args.outfile, execution_time)
+        elif args.outformat == 'bash_rm':
+            write_output_bash(d_list_hash, args.outfile, execution_time, False)
+        elif args.outformat == 'bash_link':
+            write_output_bash(d_list_hash, args.outfile, execution_time, True)
+        elif args.outformat == 'win_del':
+            write_output_win(d_list_hash, args.outfile, execution_time, False)
+        elif args.outformat == 'win_link':
+            write_output_win(d_list_hash, args.outfile, execution_time, True)
     else:
-        write_json_output(d_list_hash, args.outfile, execution_time)
+        write_output_text(d_list_hash, args.outfile, execution_time, read_errors)
+
 
     # done
     sys.exit(0)
