@@ -6,9 +6,9 @@ use 'pip -r requirements.txt' to install package dependencies
 
 Usage
 =====
-usage: check_duplicate_files.py [-h] [-i DIR] [--hash HASHTYPE] [-p] [--json]
-                                [--version]
-                                [outfile]
+usage: check_duplicate_files.py [-h] [-i DIR] [--hash HASHTYPE] [-p]
+                                [-o OUTFORMAT] [--version]
+                                outfile
 
 Dublicate Checker
 
@@ -22,7 +22,9 @@ optional arguments:
                         sha384, sha512)
   -p, --perceptive-hashing
                         enables perceptive hashing of images
-  --json                write outputfile in json format
+  -o OUTFORMAT, --output-format OUTFORMAT
+                        select output format (text, json, bash_rm, bash_link,
+                        win_del, win_link)
   --version             show program's version number and exit
 
 
