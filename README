@@ -10,7 +10,7 @@ usage: check_duplicate_files.py [-h] [-i DIR] [--hash HASHTYPE] [-p]
                                 [-o OUTFORMAT] [--version]
                                 outfile
 
-Dublicate Checker
+Check Duplicate Files
 
 positional arguments:
   outfile               output file for found duplicates
