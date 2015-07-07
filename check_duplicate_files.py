@@ -256,6 +256,49 @@ def write_output_text(d_list_hash, outfile, exec_time, errorlist):
 
     except:                 #IOError, UnicodeEncodeError
         print('\n- Error - Could not open Output File.\n')
+<<<<<<< HEAD
+=======
+
+    if write_errorlist.__len__() > 0:
+        print('- Error - These files could not be written to output file:\n')
+        for write_error in write_errorlist:
+            print('%s\n' % os.path.normcase(write_error))
+        print('(Please check your filesystem encoding)\n')
+
+    print('\nExecution Time: %s.%s seconds' % (exec_time.seconds, exec_time.microseconds))
+    return
+
+
+def write_output_bash(d_list_hash, outfile, exec_time, create_link):
+    write_errorlist = []
+
+    try:
+        with codecs.open(outfile, 'w', encoding='utf-8') as f:
+            f.write('#!/bin/bash\n\n')
+            f.write('# This script is machine generated and might do harm to your\n')
+            f.write('# running system.\n')
+            f.write('# Please check this script carefully before running\n')
+
+            if create_link:
+                f.write('printf "replacing duplicates with hardlinks..."\n')
+            else:
+                f.write('printf "deleting duplicates..."\n')
+            for key in d_list_hash:
+                try:
+                    original = os.path.normcase(d_list_hash[key][0])
+                    f.write('# ------------------\n')
+                    f.write('# Original: %s\n' % original)
+                    for copy in d_list_hash[key][1:]:
+                        f.write('rm %s\n' % copy)
+                        if create_link:
+                            f.write('ln %s %s\n' % (original, os.path.normcase(copy)))
+                except:
+                    write_errorlist.append(file_path)
+            f.flush()
+
+    except:                 #IOError, UnicodeEncodeError
+        print('\n- Error - Could not open Output File.\n')
+>>>>>>> 7cc87f0a2b1e1981e7ac2536bdafab65950a7244
 
     if write_errorlist.__len__() > 0:
         print('- Error - These files could not be written to output file:\n')
@@ -267,6 +310,7 @@ def write_output_text(d_list_hash, outfile, exec_time, errorlist):
     return
 
 
+<<<<<<< HEAD
 def write_output_bash(d_list_hash, outfile, exec_time, create_link):
     write_errorlist = []
 
@@ -307,6 +351,8 @@ def write_output_bash(d_list_hash, outfile, exec_time, create_link):
     return
 
 
+=======
+>>>>>>> 7cc87f0a2b1e1981e7ac2536bdafab65950a7244
 def write_output_win(d_list_hash, outfile, exec_time, create_link):
     write_errorlist = []
 
@@ -400,7 +446,15 @@ def main():
     signal.signal(signal.SIGTERM, _signal_handler)
     start_time = datetime.datetime.now()
 
+<<<<<<< HEAD
     parser = ArgumentParser(description = 'Check Duplicate Files')
+=======
+    d_list_filesize = defaultdict(list)
+    d_list_hash = defaultdict(list)
+    output = ['text', 'json', 'bash_rm', 'bash_link', 'win_del', 'win_link']
+
+    parser = ArgumentParser(description = 'Dublicate Checker')
+>>>>>>> 7cc87f0a2b1e1981e7ac2536bdafab65950a7244
     parser.add_argument('-i', action = 'append', dest = 'dir',
                         type = _readable_dir,
                         help = 'add directory to list for duplicate search'
@@ -459,8 +513,11 @@ def main():
 
 
     # write output
+<<<<<<< HEAD
     output = ['text', 'json', 'bash_rm', 'bash_link', 'win_del', 'win_link']
 
+=======
+>>>>>>> 7cc87f0a2b1e1981e7ac2536bdafab65950a7244
     if args.outformat in output:
         if args.outformat == 'text':
             write_output_text(d_list_hash, args.outfile, execution_time, read_errors)
