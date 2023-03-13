@@ -42,6 +42,8 @@ def main() -> None:
     parser.add_argument('-o', action = 'store', dest = 'output_file', required = True, help = 'output file for found duplicates')
     args = parser.parse_args()
 
+    print(f"Scanning directories for files...\n")
+
     # Scan all directories and subdirectories for files
     filelist, read_errors = scanDirectories(args.path)
     
